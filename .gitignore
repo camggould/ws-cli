@@ -1,2 +1,12 @@
 node_modules/
 .DS_Store
+
+# ws-cli workspace metadata
+.workspace.yaml
+workspace.md
+tabs.json
+tabs-history.jsonl
+.session.json
+
+.beads/
+.gitattributes
