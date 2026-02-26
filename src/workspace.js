@@ -6,6 +6,8 @@ import { resolveRoot } from './config.js';
 const WS_MARKER = '.workspace.yaml';
 const WS_DOC = 'workspace.md';
 const TABS_FILE = 'tabs.json';
+const TABS_HISTORY_FILE = 'tabs-history.jsonl';
+const SESSION_FILE = '.session.json';
 
 export function getWorkspacePath(config, name) {
   const root = resolveRoot(config);
@@ -160,4 +162,48 @@ export function writeTabs(wsPath, tabs) {
     path.join(wsPath, TABS_FILE),
     JSON.stringify(tabs, null, 2) + '\n'
   );
+}
+
+export function appendTabsHistory(wsPath, tabs) {
+  if (!tabs.length) return;
+  const entry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    tabs,
+  });
+  fs.appendFileSync(path.join(wsPath, TABS_HISTORY_FILE), entry + '\n');
+}
+
+export function readTabsHistory(wsPath) {
+  const histPath = path.join(wsPath, TABS_HISTORY_FILE);
+  if (!fs.existsSync(histPath)) return [];
+  return fs
+    .readFileSync(histPath, 'utf-8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      try { return JSON.parse(line); } catch { return null; }
+    })
+    .filter(Boolean);
+}
+
+export function readSession(wsPath) {
+  const sessionPath = path.join(wsPath, SESSION_FILE);
+  if (!fs.existsSync(sessionPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(sessionPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+export function writeSession(wsPath, session) {
+  fs.writeFileSync(
+    path.join(wsPath, SESSION_FILE),
+    JSON.stringify(session, null, 2) + '\n'
+  );
+}
+
+export function clearSession(wsPath) {
+  const sessionPath = path.join(wsPath, SESSION_FILE);
+  if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
 }

@@ -69,7 +69,7 @@ ws open my-project
 This:
 1. Updates `last_opened` and sets status to `active`
 2. Creates or attaches to the tmux session
-3. Restores browser tabs from `tabs.json`
+3. Opens last session's browser tabs in a **dedicated Chrome window** and tracks its window ID
 4. Opens the workspace directory in your editor
 
 Options:
@@ -87,8 +87,10 @@ ws close my-project
 ```
 
 This:
-1. Captures all open browser tabs to `tabs.json`
-2. Sets workspace status to `paused`
+1. Captures browser tabs **only from the workspace's tracked window** to `tabs.json`
+2. Appends the same tabs to `tabs-history.jsonl` (timestamped, never overwritten)
+3. Clears the active session (`.session.json`)
+4. Sets workspace status to `paused`
 
 If you're inside a workspace directory, the name is inferred:
 
@@ -299,8 +301,8 @@ export const myBrowser = {
     check: () => boolean,         // is the tool installed?
     install: { brew: 'pkg' },     // install instructions
   },
-  listTabs() { ... },             // → [{ title, url }]
-  openTabs(tabs) { ... },         // open an array of tabs, return count
+  listTabs(windowId) { ... },     // → [{ title, url }]; windowId scopes capture
+  openTabs(tabs, windowId) { },   // → { opened: number, windowId: string|null }
   openUrl(url) { ... },           // open a single URL
 };
 ```
@@ -350,9 +352,11 @@ Every workspace is a directory under your workspaces root (default `~/Workspaces
 
 ```
 my-project/
-├── .workspace.yaml     ← machine-readable metadata
-├── workspace.md        ← human-readable notes (Obsidian-compatible)
-├── tabs.json           ← saved browser tabs
+├── .workspace.yaml     ← machine-readable metadata (git-tracked)
+├── workspace.md        ← human-readable notes, Obsidian-compatible (git-tracked)
+├── tabs.json           ← last session's browser tabs (git-tracked)
+├── tabs-history.jsonl  ← append-only log of all tab sessions (git-tracked)
+├── .session.json       ← ephemeral runtime state, present only while workspace is open
 ├── .beads/             ← beads issue tracker data (if using beads)
 ├── .git/               ← git repository
 └── ...                 ← your project files
@@ -377,7 +381,7 @@ Status values: `active`, `paused`, `archived`, `abandoned`
 
 A markdown file with YAML frontmatter (mirrors `.workspace.yaml`) and freeform sections for notes, purpose, and links. Opens natively in Obsidian if you point a vault at your workspaces root.
 
-### tabs.json
+### tabs.json (last session)
 
 ```json
 [
@@ -386,7 +390,50 @@ A markdown file with YAML frontmatter (mirrors `.workspace.yaml`) and freeform s
 ]
 ```
 
-Captured on `ws close`, restored on `ws open`.
+This is a **snapshot** of the most recent session's tabs. It is overwritten on every `ws close` and is the only file read by `ws open`. This means opening a workspace always restores exactly where you left off — not an accumulation of every tab you've ever had.
+
+### tabs-history.jsonl (complete history)
+
+```jsonl
+{"timestamp":"2026-02-20T14:30:00Z","tabs":[{"title":"...","url":"..."},{"title":"...","url":"..."}]}
+{"timestamp":"2026-02-25T09:15:00Z","tabs":[{"title":"...","url":"..."}]}
+```
+
+Every `ws close` appends one line. This file is append-only and never read by `ws open`. It serves as a browsing history scoped to the workspace — useful for:
+- Reconstructing what you were researching weeks ago
+- MCP server queries ("what sites did I visit for this project?")
+- Finding a URL you had open three sessions ago but closed
+
+### .session.json (runtime state)
+
+```json
+{
+  "opened_at": "2026-02-25T09:00:00Z",
+  "browser_window_id": "742"
+}
+```
+
+Created by `ws open`, deleted by `ws close`. Tracks ephemeral state like which Chrome window belongs to this workspace. Not committed to git.
+
+## Browser Isolation
+
+A key design challenge: if you have multiple workspaces open simultaneously, how does `ws close` know which Chrome tabs belong to which workspace?
+
+### How it works
+
+1. **`ws open`** restores tabs in a **new, dedicated Chrome window** and records its window ID in `.session.json`
+2. **`ws close`** reads the tracked window ID and captures tabs **only from that window**
+3. If no window ID is tracked (e.g., the workspace was created before this feature, or the browser adapter doesn't support window tracking), `ws close` warns you and falls back to capturing all tabs
+
+### Limitations
+
+- If you manually drag tabs between Chrome windows, they can end up in the wrong workspace's capture. This is a Chrome UX issue, not something `ws-cli` can prevent without a browser extension.
+- Tabs you close during a session (before `ws close`) are not captured. They simply disappear, as they would normally. The `tabs-history.jsonl` only records what was open at the moment of `ws close`.
+- The `brotab` adapter does not support window-scoped capture — it always captures all tabs.
+
+### Future options
+
+For stronger isolation, the roadmap includes Chrome profile support (each workspace gets its own Chrome profile with fully separate history, cookies, and extensions). This is the nuclear option — true isolation with no possible cross-contamination.
 
 ## Sub-Workspaces
 
@@ -442,12 +489,13 @@ ws config preset my-setup
 |---|---|
 | `ws` tool itself | Git clone + `./setup.sh` |
 | Config + presets | `~/.config/ws/` (copy or dotfiles repo) |
-| Workspace metadata | `.workspace.yaml`, `workspace.md`, `tabs.json` — all plain text, all git-friendly |
+| Workspace metadata | `.workspace.yaml`, `workspace.md`, `tabs.json`, `tabs-history.jsonl` — all plain text, all git-friendly |
 | Task data | `.beads/` issues are JSONL, designed for git |
-| Browser tabs | `tabs.json` — just URLs, works with any browser adapter |
+| Browser tabs | `tabs.json` (last session) + `tabs-history.jsonl` (full history) — just URLs, works with any browser adapter |
 
 ### What's not portable (and doesn't need to be)
 
+- `.session.json` (ephemeral runtime state — which Chrome window is tracked, etc.)
 - tmux sessions (ephemeral, recreated on `ws open`)
 - Editor state (editors handle their own persistence)
 - Installed tools (reinstalled via `ws setup`)

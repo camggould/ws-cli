@@ -4,6 +4,8 @@ import {
   workspaceExists,
   readTabs,
   updateWorkspaceMeta,
+  writeSession,
+  readSession,
 } from '../workspace.js';
 import { getAdapterForConfig } from '../adapters/index.js';
 
@@ -23,6 +25,9 @@ export async function openCommand(name, opts) {
   const now = new Date().toISOString().split('T')[0];
   updateWorkspaceMeta(wsPath, { last_opened: now, status: 'active' });
 
+  // Initialize session tracking
+  const session = { opened_at: new Date().toISOString() };
+
   // Restore terminal session
   if (opts.terminal !== false) {
     const terminal = getAdapterForConfig(config, 'terminal');
@@ -41,15 +46,19 @@ export async function openCommand(name, opts) {
     }
   }
 
-  // Restore browser tabs
+  // Restore browser tabs in a dedicated window
   if (opts.browser !== false) {
     const browser = getAdapterForConfig(config, 'browser');
     if (browser) {
       const tabs = readTabs(wsPath);
       if (tabs.length > 0) {
         try {
-          const opened = browser.openTabs(tabs);
-          console.log(`  Browser: restored ${opened}/${tabs.length} tabs`);
+          const result = browser.openTabs(tabs);
+          console.log(`  Browser: restored ${result.opened}/${tabs.length} tabs`);
+          if (result.windowId) {
+            session.browser_window_id = result.windowId;
+            console.log(`  Browser: tracking window ${result.windowId}`);
+          }
         } catch (err) {
           console.log(`  Browser: failed to restore tabs (${err.message})`);
         }
@@ -58,6 +67,9 @@ export async function openCommand(name, opts) {
       }
     }
   }
+
+  // Save session state (window IDs, etc.)
+  writeSession(wsPath, session);
 
   // Open editor
   if (opts.editor !== false) {

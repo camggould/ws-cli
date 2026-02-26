@@ -9,8 +9,10 @@ export const brotab = {
     install: { pip: 'brotab' },
   },
 
-  listTabs() {
-    // bt list outputs: tab_id<TAB>title<TAB>url
+  /**
+   * List tabs. windowId filtering not supported by brotab — returns all tabs.
+   */
+  listTabs(_windowId) {
     const result = run('bt', ['list']);
     if (!result.ok) return [];
 
@@ -27,13 +29,16 @@ export const brotab = {
       .filter((t) => t.url);
   },
 
-  openTabs(tabs) {
+  /**
+   * Open tabs. Returns { opened, windowId: null } (brotab has no window concept).
+   */
+  openTabs(tabs, _windowId) {
     let opened = 0;
     for (const tab of tabs) {
       const result = run('bt', ['open', tab.url]);
       if (result.ok) opened++;
     }
-    return opened;
+    return { opened, windowId: null };
   },
 
   openUrl(url) {

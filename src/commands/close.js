@@ -3,7 +3,10 @@ import {
   getWorkspacePath,
   workspaceExists,
   writeTabs,
+  appendTabsHistory,
   updateWorkspaceMeta,
+  readSession,
+  clearSession,
 } from '../workspace.js';
 import { getAdapterForConfig } from '../adapters/index.js';
 
@@ -32,15 +35,30 @@ export async function closeCommand(name, opts) {
   const wsPath = getWorkspacePath(config, name);
   console.log(`Closing workspace: ${name}`);
 
+  // Read active session to get tracked window ID
+  const session = readSession(wsPath);
+  const windowId = session?.browser_window_id || null;
+
   // Save browser tabs
   if (opts.browser !== false) {
     const browser = getAdapterForConfig(config, 'browser');
     if (browser) {
       try {
-        const tabs = browser.listTabs();
+        // Only capture tabs from the workspace's tracked window
+        const tabs = browser.listTabs(windowId);
+
+        if (windowId) {
+          console.log(`  Browser: capturing from tracked window ${windowId}`);
+        } else {
+          console.log('  Browser: no tracked window — capturing all tabs (cross-contamination possible)');
+        }
+
         if (tabs.length > 0) {
+          // Write last-session snapshot (what ws open will restore)
           writeTabs(wsPath, tabs);
-          console.log(`  Browser: saved ${tabs.length} tabs`);
+          // Append to full history log
+          appendTabsHistory(wsPath, tabs);
+          console.log(`  Browser: saved ${tabs.length} tabs (last session + history)`);
         } else {
           console.log('  Browser: no tabs to save');
         }
@@ -49,6 +67,9 @@ export async function closeCommand(name, opts) {
       }
     }
   }
+
+  // Clear session tracking
+  clearSession(wsPath);
 
   // Update metadata
   updateWorkspaceMeta(wsPath, { status: 'paused' });
