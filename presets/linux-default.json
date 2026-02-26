@@ -1,0 +1,9 @@
+{
+  "description": "Linux setup — brotab + VS Code + tmux + Beads",
+  "adapters": {
+    "browser": "brotab",
+    "tasks": "beads",
+    "terminal": "tmux",
+    "editor": "vscode"
+  }
+}

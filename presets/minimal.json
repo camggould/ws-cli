@@ -1,0 +1,9 @@
+{
+  "description": "Minimal setup — terminal and editor only, no browser or task tracking",
+  "adapters": {
+    "browser": null,
+    "tasks": null,
+    "terminal": "tmux",
+    "editor": "vscode"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "macOS with VS Code instead of Cursor",
+  "adapters": {
+    "browser": "chrome-cli",
+    "tasks": "beads",
+    "terminal": "tmux",
+    "editor": "vscode"
+  }
+}

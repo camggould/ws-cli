@@ -1,0 +1,20 @@
+{
+  "name": "ws-cli",
+  "version": "0.1.0",
+  "description": "Portable workspace manager — composable, configurable, LLM-friendly",
+  "type": "module",
+  "bin": {
+    "ws": "./bin/ws.js"
+  },
+  "scripts": {
+    "link": "npm link"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "js-yaml": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

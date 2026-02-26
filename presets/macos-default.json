@@ -1,0 +1,9 @@
+{
+  "description": "Default macOS setup — Chrome + Cursor + tmux + Beads",
+  "adapters": {
+    "browser": "chrome-cli",
+    "tasks": "beads",
+    "terminal": "tmux",
+    "editor": "cursor"
+  }
+}
