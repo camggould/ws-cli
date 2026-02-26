@@ -9,6 +9,14 @@ const TABS_FILE = 'tabs.json';
 const TABS_HISTORY_FILE = 'tabs-history.jsonl';
 const SESSION_FILE = '.session.json';
 
+export const WS_GITIGNORE = `# ws-cli workspace metadata
+.workspace.yaml
+workspace.md
+tabs.json
+tabs-history.jsonl
+.session.json
+`;
+
 export function getWorkspacePath(config, name) {
   const root = resolveRoot(config);
   // Support dotted paths for sub-workspaces: "project.subproject"
@@ -66,6 +74,9 @@ ${yaml.dump(meta, { lineWidth: -1 }).trim()}
   // Initialize empty tabs file
   fs.writeFileSync(path.join(wsPath, TABS_FILE), '[]\n');
 
+  // Write or append workspace entries to .gitignore
+  writeWsGitignore(wsPath);
+
   return { path: wsPath, meta };
 }
 
@@ -115,10 +126,16 @@ function walkForWorkspaces(dir, root, results) {
   }
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    // Check resolved type so symlinks to directories are followed
+    const entryPath = path.join(dir, entry.name);
+    let isDir = entry.isDirectory();
+    if (!isDir && entry.isSymbolicLink()) {
+      try { isDir = fs.statSync(entryPath).isDirectory(); } catch { continue; }
+    }
+    if (!isDir) continue;
     if (entry.name.startsWith('.') && entry.name !== '.ws') continue;
     if (entry.name === 'node_modules') continue;
-    walkForWorkspaces(path.join(dir, entry.name), root, results);
+    walkForWorkspaces(entryPath, root, results);
   }
 }
 
@@ -206,4 +223,27 @@ export function writeSession(wsPath, session) {
 export function clearSession(wsPath) {
   const sessionPath = path.join(wsPath, SESSION_FILE);
   if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
+}
+
+/**
+ * Write workspace gitignore entries. If .gitignore exists, appends only
+ * missing entries. If it doesn't exist, creates it.
+ */
+export function writeWsGitignore(wsPath) {
+  const gitignorePath = path.join(wsPath, '.gitignore');
+  const entries = WS_GITIGNORE.trim().split('\n').filter((l) => l && !l.startsWith('#'));
+
+  if (fs.existsSync(gitignorePath)) {
+    const existing = fs.readFileSync(gitignorePath, 'utf-8');
+    const missing = entries.filter((e) => !existing.includes(e));
+    if (missing.length > 0) {
+      const suffix = existing.endsWith('\n') ? '' : '\n';
+      fs.appendFileSync(
+        gitignorePath,
+        `${suffix}\n# ws-cli workspace metadata\n${missing.join('\n')}\n`
+      );
+    }
+  } else {
+    fs.writeFileSync(gitignorePath, WS_GITIGNORE);
+  }
 }

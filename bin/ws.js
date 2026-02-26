@@ -8,6 +8,7 @@ import { closeCommand } from '../src/commands/close.js';
 import { listCommand } from '../src/commands/list.js';
 import { treeCommand } from '../src/commands/tree.js';
 import { configCommand } from '../src/commands/config.js';
+import { initCommand } from '../src/commands/init.js';
 import { archiveCommand } from '../src/commands/archive.js';
 
 const program = new Command();
@@ -32,6 +33,17 @@ program
   .option('--no-terminal', 'Skip terminal session creation')
   .option('--template <name>', 'Use a workspace template (default, startup, research)')
   .action(createCommand);
+
+program
+  .command('init')
+  .description('Convert an existing directory into a workspace')
+  .option('--path <dir>', 'Directory to initialize (defaults to current directory)')
+  .option('-n, --name <name>', 'Workspace name (defaults to directory name)')
+  .option('-t, --tags <tags>', 'Comma-separated tags', (v) => v.split(','))
+  .option('--link', 'Symlink into workspaces root if directory is outside it')
+  .option('--no-tasks', 'Skip task tracker initialization')
+  .option('--no-terminal', 'Skip terminal session creation')
+  .action(initCommand);
 
 program
   .command('open <name>')

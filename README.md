@@ -60,6 +60,27 @@ ws create feature --parent my-project        # create a sub-workspace
 ws create research --no-tasks --no-terminal  # skip beads and tmux
 ```
 
+### Initialize an existing directory as a workspace
+
+```bash
+cd ~/my-existing-project
+ws init
+```
+
+This adds workspace metadata (`.workspace.yaml`, `workspace.md`, `tabs.json`) and initializes beads and a tmux session — without touching any existing files.
+
+Options:
+
+```bash
+ws init --path ~/some/project          # target a specific directory
+ws init --name my-project              # override the workspace name (defaults to directory name)
+ws init --tags coding,oss              # add tags
+ws init --link                         # symlink into ~/Workspaces/ if outside it
+ws init --no-tasks --no-terminal       # skip beads and tmux
+```
+
+If the directory is outside your workspaces root, `ws init` tells you. Pass `--link` to create a symlink so it appears in `ws list` and `ws tree` without moving the directory.
+
 ### Open a workspace
 
 ```bash
@@ -527,6 +548,7 @@ ws-cli/
 │   └── commands/
 │       ├── setup.js             # ws setup
 │       ├── create.js            # ws create
+│       ├── init.js              # ws init
 │       ├── open.js              # ws open
 │       ├── close.js             # ws close
 │       ├── list.js              # ws list
